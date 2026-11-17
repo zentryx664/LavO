@@ -15,11 +15,15 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: lavo-gaming-hub
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -48,8 +52,8 @@ jobs:
           python scripts/prepare-android.py
 
       - name: Build Debug APK
-        working-directory: android
         run: |
+          cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
@@ -57,18 +61,22 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LavO-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: lavo-gaming-hub/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
   windows:
-    name: Build Windows
+    name: Build Windows Application
     runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: lavo-gaming-hub
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -79,6 +87,9 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Generate application icons
+        run: npx tauri icon app-icon.png
+
       - name: Build Windows application
         run: npx tauri build
 
@@ -86,6 +97,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LavO-Windows
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          path: lavo-gaming-hub/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           
