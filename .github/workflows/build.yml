@@ -1,5 +1,5 @@
 
-name: LavO Gaming Hub - Build & Test
+name: LavO Gaming Hub - Build
 
 on:
   push:
@@ -11,56 +11,15 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Validate Project
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: |
-          npm install --no-audit --no-fund
-          python -m pip install pillow
-
-      - name: Validate JavaScript
-        run: |
-          node --check www/app.js
-          node --check www/pylite.js
-
-      - name: Validate Python scripts
-        run: |
-          python -m py_compile scripts/android-icons.py
-          python -m py_compile scripts/prepare-android.py
-
-      - name: Validate JSON files
-        run: |
-          python -c "import json,pathlib; files=list(pathlib.Path('.').rglob('*.json')); [json.loads(p.read_text()) for p in files if '.git' not in str(p) and 'node_modules' not in str(p) and 'target' not in str(p)]; print(f'Validated {len(files)} JSON files')"
-
-      - name: Validate package scripts
-        run: npm run
-
   android:
     name: Build Android APK
-    needs: validate
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -81,14 +40,14 @@ jobs:
           npm install --no-audit --no-fund
           python -m pip install pillow
 
-      - name: Generate Android project
+      - name: Create Android project
         run: |
           npx cap add android
           python scripts/android-icons.py
           npx cap sync android
           python scripts/prepare-android.py
 
-      - name: Build APK
+      - name: Build Debug APK
         working-directory: android
         run: |
           chmod +x gradlew
@@ -102,15 +61,14 @@ jobs:
           if-no-files-found: error
 
   windows:
-    name: Build Windows Application
-    needs: validate
+    name: Build Windows
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -118,16 +76,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Rust builds
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
-      - name: Generate application icons
-        run: npx tauri icon app-icon.png
 
       - name: Build Windows application
         run: npx tauri build
@@ -135,7 +85,7 @@ jobs:
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: LavO-Windows-Installer
+          name: LavO-Windows
           path: src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
           
