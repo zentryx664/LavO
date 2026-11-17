@@ -3,6 +3,7 @@
 One web-based UI (`www/`), packaged two ways by GitHub Actions:
 
 - **Android**: Capacitor, builds an installable `.apk`
+  - The workflow copies the native Capacitor bridge and adds Android launcher-app package visibility via `scripts/prepare-android.py`.
 - **Windows**: Tauri v2, builds an installer `.exe` and a portable `.exe`
 
 No framework and no runtime dependencies in the UI. Expected size: Android APK about 4 to 6 MB, Windows app about 5 to 10 MB.
@@ -46,7 +47,7 @@ Open `www/index.html`, or run `npx serve www`. The layout switches between the W
 
 ## Games, mods and safety (v1.2)
 
-- **Games**: Windows scans Steam and Epic libraries and detects each game's engine (Source, Unreal, Unity, Godot). Android lists installed apps and shows the store ("Google Play", "APK file", ...).
+- **Games**: Windows scans Steam and Epic libraries and detects each game's engine (Source, Unreal, Unity, Godot). Android automatically lists installed launcher apps marked as games (`CATEGORY_GAME` or the legacy game flag), with their app icons and package names. Android library entries are synchronized against the installed-game scan.
 - **FPS Boost** is forced on for every game by default (Settings can turn it off). On Windows it raises the game's CPU priority for all games and adds engine-specific options: `+fps_max 0 -high -novid` for Source games, `-USEALLAVAILABLECORES -nosplash` for Unreal games. Other engines get the priority boost only. Android does not allow changing other apps, so nothing is boosted there.
 - **Mods are Python files**: write a `.py`, rename it to `.la`, import it. They run in a sandbox (`www/pylite.js`): no imports, files, network or system access, step and size limits. Supported Python: variables, numbers, text, f-strings, lists, dicts, `if/elif/else`, `for`, `while`, `def`, `return`, operators, `in`, ternary, and the built-ins `range len int float str bool abs round min max sum sorted print`. Not supported: classes, `try`, `lambda`, comprehensions, slices, imports (only `import lavo` is ignored).
 - **Mod API**
