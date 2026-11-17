@@ -1,17 +1,28 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#0b0b0c" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <title>LavO</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <div id="audio-sink" aria-hidden="true" style="position:fixed;width:0;height:0;overflow:hidden"></div>
-    <div id="toasts" role="status" aria-live="polite"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0e0e0f">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'">
+<title>LavO Gaming Hub</title>
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <nav class="side" id="side" aria-label="Main"></nav>
+  <div class="col">
+    <header class="top" id="top"></header>
+    <main id="view" tabindex="-1"></main>
+  </div>
+  <nav class="bottom" id="bottom" aria-label="Main"></nav>
+</div>
+<dialog id="dlg"></dialog>
+<div id="launch" hidden aria-live="polite"><div class="lc"><span class="gi big" id="lcArt"></span><h2 id="lcName"></h2><p class="mu" id="lcMsg">Launching…</p><div class="lbar"><i></i></div></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="pylite.js"></script>
+<script src="app.js"></script>
+</body>
 </html>

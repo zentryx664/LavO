@@ -1,47 +1,38 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "LavO",
-  "version": "0.1.0",
-  "identifier": "app.lavo.client",
+  "productName": "LavO Gaming Hub",
+  "version": "1.2.0",
+  "identifier": "com.lavo.gaminghub",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "frontendDist": "../www"
   },
   "app": {
     "windows": [
       {
-        "label": "main",
-        "title": "LavO",
-        "width": 1040,
-        "height": 700,
-        "minWidth": 380,
-        "minHeight": 520,
-        "backgroundColor": "#0b0b0c"
+        "title": "LavO Gaming Hub",
+        "width": 1280,
+        "height": 780,
+        "minWidth": 900,
+        "minHeight": 600,
+        "backgroundColor": "#0e0e0f"
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost https://*.supabase.co wss://*.supabase.co https://*.supabase.in wss://*.supabase.in"
-    }
+      "csp": null
+    },
+    "withGlobalTauri": true
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "category": "SocialNetworking",
-    "shortDescription": "Lightweight gaming voice and chat",
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "windows": {
-      "nsis": {
-        "installMode": "currentUser",
-        "compression": "lzma"
-      }
-    }
+    ]
   }
 }

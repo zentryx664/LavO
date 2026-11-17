@@ -1,97 +1,61 @@
-# LavO
+# LavO Gaming Hub
 
-Lightweight gaming voice and chat for **Android** and **Windows**. One codebase, built with
-[Tauri 2](https://tauri.app) (system WebView + a tiny Rust shell, no Flutter, no Electron) and a vanilla JS UI.
+One web-based UI (`www/`), packaged two ways by GitHub Actions:
 
-| | |
-|---|---|
-| Accounts, profiles, friends, settings | Supabase Auth + Postgres (the only persistent data) |
-| Direct and group text | Supabase Realtime Broadcast, memory only, never stored |
-| Voice | WebRTC peer-to-peer, never recorded or stored |
-| Online status | Supabase Realtime Presence |
+- **Android**: Capacitor, builds an installable `.apk`
+- **Windows**: Tauri v2, builds an installer `.exe` and a portable `.exe`
 
-## How it works
+No framework and no runtime dependencies in the UI. Expected size: Android APK about 4 to 6 MB, Windows app about 5 to 10 MB.
 
-- **Friends channel**: each friend pair shares one private Realtime channel (`dm:<idA>:<idB>`) carrying presence, direct messages and call invites. Database policies only let those two users join, and only while they are friends.
-- **Rooms** (`room:<CODE>`): temporary group spaces with text and optional voice. Anyone with the code can join. Private calls are rooms with a random 24-character code sent through the friend channel.
-- **Voice**: WebRTC mesh with Opus audio, optional noise suppression / echo cancellation / auto gain, microphone and speaker selection, and live ping / jitter / packet-loss readout. Mesh suits small groups (about 6 people).
-- **Performance mode**: no animations, lower voice bitrate (24 kbps), slower network polling.
-- No performance guarantees are made. LavO is designed to use little CPU and RAM, but results depend on your device and network.
+## Build both apps on GitHub
 
-## 1. Set up Supabase (once)
+1. Create an empty repository on GitHub.
+2. In this folder run:
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. **SQL Editor**: paste and run [`supabase/schema.sql`](supabase/schema.sql).
-3. **Authentication > Providers > Email**: for quick testing, turn off "Confirm email". Leave it on for production (users then confirm by email before logging in).
-4. **Realtime settings**: make sure "Allow public access" is **off** so private channels are enforced.
-5. Copy the Project URL and anon key from **Project Settings > API**.
+   ```
+   git init
+   git add -A
+   git commit -m "LavO Gaming Hub"
+   git branch -M main
+   git remote add origin https://github.com/<you>/<repo>.git
+   git push -u origin main
+   ```
 
-## 2. Run locally
+   Use git (or GitHub Desktop) rather than drag-and-drop in the browser, because the `.github` folder must be uploaded.
+3. Open the **Actions** tab. The workflow **Build LavO Gaming Hub** starts on every push. You can also run it with **Run workflow**.
+4. When both jobs are green, open the run and download from **Artifacts**:
+   - `LavO-Gaming-Hub-Android-APK` contains `app-debug.apk`
+   - `LavO-Gaming-Hub-Windows-Installer` contains the setup `.exe`
+   - `LavO-Gaming-Hub-Windows-Portable` contains `lavo-gaming-hub.exe`
 
-```bash
-npm install
-cp .env.example .env     # optional: put your Supabase URL/key here
-npm test                 # unit tests
-npm run dev              # web preview at http://localhost:1420 (works in Chrome/Edge)
-```
+## Install
 
-If no `.env` is provided, the app asks for the project URL and anon key on first launch and stores them on the device.
+- **Android**: copy the APK to the phone, open it, and allow "install unknown apps" when asked. It is a debug-signed build, so it installs directly.
+- **Windows**: run the setup `.exe`. If SmartScreen warns, choose More info, then Run anyway (the app is unsigned).
 
-Desktop app (needs [Rust](https://rustup.rs) and the Tauri prerequisites for your OS):
+## Preview in a browser
 
-```bash
-npm run tauri -- dev
-npm run tauri -- build --bundles nsis      # Windows installer
-```
+Open `www/index.html`, or run `npx serve www`. The layout switches between the Windows sidebar (wide screens) and the Android bottom bar (narrow screens).
 
-Android (needs Android Studio / SDK + NDK, Java 17, and `rustup target add aarch64-linux-android`):
+## Notes
 
-```bash
-npm run tauri -- android init
-node scripts/patch-android.mjs             # adds RECORD_AUDIO etc. to the manifest
-npm run tauri -- android build --apk --target aarch64
-```
+- Data is saved on the device (localStorage). Use Settings > Export backup to move it.
+- On Android, "Save file" in export dialogs may not work. Use **Copy** and paste the text where you need it.
+- For a Play Store release you need a signed release build with your own keystore. This workflow produces the debug APK only.
+- The icon source is `app-icon.png`. The workflow generates every Windows and Android icon from it.
 
-## 3. GitHub: automatic builds
+## Games, mods and safety (v1.2)
 
-Push this folder to a GitHub repository. [`.github/workflows/build.yml`](.github/workflows/build.yml) then:
-
-1. runs unit tests and a web build,
-2. builds the **Windows NSIS installer** (`LavO-windows-installer` artifact),
-3. builds and signs the **Android APK** (`LavO-android-apk` artifact, arm64),
-4. on a tag like `v0.1.0`, attaches both to a GitHub Release.
-
-Optional repository secrets (**Settings > Secrets and variables > Actions**):
-
-| Secret | Purpose |
-|---|---|
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Bake your server into the builds (otherwise users enter it on first launch) |
-| `TURN_URL`, `TURN_USERNAME`, `TURN_CREDENTIAL` | TURN relay so voice works behind strict NAT / some mobile networks |
-| `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` | Your release signing key. Without it, CI signs with a throwaway key: installable for testing, but updates will not install over it |
-
-Create a keystore once with
-`keytool -genkeypair -v -keystore release.keystore -alias lavo -keyalg RSA -keysize 2048 -validity 10000`
-and store `base64 -w0 release.keystore` as the secret.
-
-## Project layout
-
-```
-src/lib/         pure logic (validation, stats maths, topics), unit-tested
-src/services/    auth, friends, settings, audio devices, DirectHub (DMs/presence), Room (chat + WebRTC)
-src/views/       gate (setup/login), friends, chat, room, settings, app shell
-src-tauri/       minimal Rust shell, Tauri config, icons generated from your logo
-supabase/        schema.sql (tables, RLS, RPCs, realtime channel policies)
-scripts/         Android manifest patch
-```
-
-## Privacy and limits
-
-- Messages and calls are not stored by LavO. Direct messages are only delivered while the friend is online.
-- Room codes are shared secrets: anyone who has the code can join that room, and room members can see each other's network addresses via WebRTC.
-- Each friend uses one Realtime channel, so very large friend lists (about 100 online-capable friends) hit Supabase's per-connection channel limit.
-- Voice mesh sends one stream per participant; larger groups need an SFU, which is out of scope here.
-
-## Honest test status
-
-Verified in development: unit tests for the pure logic, a production web build, a DOM smoke test of every screen, and workflow/config validation.
-**Not yet run:** the Rust/Tauri compile, the Android and Windows builds, and real calls on devices. Those happen in GitHub Actions on first push; expect to check the first CI run and test voice on a real phone and PC. The Supabase SQL (especially the Realtime channel policies) was written against the documented API but has not been executed against a live project.
+- **Games**: Windows scans Steam and Epic libraries and detects each game's engine (Source, Unreal, Unity, Godot). Android lists installed apps and shows the store ("Google Play", "APK file", ...).
+- **FPS Boost** is forced on for every game by default (Settings can turn it off). On Windows it raises the game's CPU priority for all games and adds engine-specific options: `+fps_max 0 -high -novid` for Source games, `-USEALLAVAILABLECORES -nosplash` for Unreal games. Other engines get the priority boost only. Android does not allow changing other apps, so nothing is boosted there.
+- **Mods are Python files**: write a `.py`, rename it to `.la`, import it. They run in a sandbox (`www/pylite.js`): no imports, files, network or system access, step and size limits. Supported Python: variables, numbers, text, f-strings, lists, dicts, `if/elif/else`, `for`, `while`, `def`, `return`, operators, `in`, ternary, and the built-ins `range len int float str bool abs round min max sum sorted print`. Not supported: classes, `try`, `lambda`, comprehensions, slices, imports (only `import lavo` is ignored).
+- **Mod API**
+  - Info: `name("...")`, `version("1.0.0")`, `author("...")`, `description("...")`, `games("*")` or `games("A", "B")`
+  - Settings (declare at the top level): `number(key, label, min, max, default, step)`, `toggle(key, label, default)`, `choice(key, label, [options], default)`. Each returns the value the user picked.
+  - Output: `arg("-flag", value)`, `env("NAME", "value")`, `priority("high")`
+  - Variables: `game`, `engine`, `platform`, `source`
+  - Launch option characters allowed: letters, numbers and `- _ . = : + , / \`. Blocked flags: `+exec`, `-exec`, `+connect`, `-connect`, `+rcon`, `-run`, `-script`, `-cmd`, `-load`, `-dll`, `-inject`, `-preload`.
+- **Collections** export as a single `.la` text with `# lavo-collection: Name` and `# ==== mod ====` separators.
+- **Safety**: only `.la` files are accepted; every mod is parsed and shown (with its code) before install; launch options are validated again by the Windows side; no shell is used; the priority boost uses a fixed script.
+- **Permissions**: no storage permission. Android declares only "see installed apps". Auto-backup is off.
+- **Animations**: sliding tab changes, a moving tab indicator, staggered game grids, a launch screen when you press Play, and animated dialogs. They switch off with the device's reduced-motion setting.
