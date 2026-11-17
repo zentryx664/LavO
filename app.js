@@ -389,7 +389,7 @@ function vSettings() {
 <ul class="plist mu sm"><li>No storage permission is requested. Files are only read when you pick them.</li><li>${p === 'android' ? 'Android: LavO can see which apps are installed so it can find your games. It never changes them.' : 'Windows: LavO reads Steam and Epic game lists. It never changes game files.'}</li><li>Mods are Python files (.la) that run in a sandbox. They cannot import modules, open files, use the network or run programs. They can only set launch options, and every mod is checked and previewed before it is installed.</li></ul></section>
 <section class="card stack" style="max-width:560px"><h2>Data</h2><p class="mu sm" style="margin:0">Everything is stored on this device only. Playtime is estimated from the time you spend away from LavO after pressing Play.</p>
 <div class="acts"><button class="btn" data-act="rescan">Scan for games</button><button class="btn" data-act="export-all">Export backup</button><button class="btn" data-act="import-all">Import backup</button><button class="btn" data-act="sample">Load sample data</button><button class="btn" data-act="reset">Reset all data</button></div></section>
-<section class="card about" style="max-width:560px"><img src="logo.png" alt=""><div><h2>LavO Gaming Hub</h2><span class="mu sm">Version 1.2.0</span></div></section>`;
+<section class="card about" style="max-width:560px"><img src="logo.png" alt=""><div><h2>LavO Gaming Hub</h2><span class="mu sm">Version 1.2.1</span></div></section>`;
 }
 
 /* ---------- dialogs ---------- */

@@ -1,9 +1,13 @@
 {
   "name": "lavo-gaming-hub",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "LavO Gaming Hub: library, tournaments, leaderboards and mods for Android and Windows.",
   "scripts": {
+    "test": "node scripts/check.js",
+    "check": "node scripts/check.js",
+    "build": "node scripts/build-web.js",
+    "build:web": "node scripts/build-web.js",
     "tauri": "tauri",
     "cap": "cap"
   },

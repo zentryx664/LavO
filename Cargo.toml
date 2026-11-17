@@ -1,6 +1,6 @@
 [package]
 name = "lavo-gaming-hub"
-version = "1.2.0"
+version = "1.2.1"
 description = "LavO Gaming Hub"
 edition = "2021"
 
