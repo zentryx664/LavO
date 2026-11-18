@@ -4,7 +4,7 @@ Run from the repository root AFTER `npx cap add android`.
  - launcher icons from app-icon.png
  - removes the default Capacitor splash screen (solid dark launch background)
  - installs the native LavO plugin (game detection and launching)
- - declares the "see installed apps" permission; no storage permission is requested
+ - declares the permissions and the overlay service used for game boost; no storage permission is requested
 """
 import os
 import re
@@ -75,17 +75,43 @@ if not main_path:
     sys.exit("MainActivity.java not found in the generated project.")
 java_dir = os.path.dirname(main_path)
 pkg = re.search(r"^package\s+([\w.]+);", open(main_path, encoding="utf-8").read(), re.M).group(1)
-for name in ("MainActivity.java", "LavoPlugin.java"):
+for name in sorted(os.listdir("android-native")):
+    if not name.endswith(".java"):
+        continue
     text = open(os.path.join("android-native", name), encoding="utf-8").read()
     text = re.sub(r"^package\s+[\w.]+;", "package " + pkg + ";", text, count=1, flags=re.M)
     with open(os.path.join(java_dir, name), "w", encoding="utf-8") as f:
         f.write(text)
 
-# ---- manifest: installed-apps visibility only, no backups ----
+# ---- manifest: permissions and the overlay service ----
 man = os.path.join(ROOT, "AndroidManifest.xml")
 t = open(man, encoding="utf-8").read()
-if "QUERY_ALL_PACKAGES" not in t:
-    t = t.replace("<application", '<uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />\n    <application', 1)
+PERMS = [
+    "QUERY_ALL_PACKAGES",              # see which apps/games are installed
+    "WRITE_SETTINGS",                  # brightness, screen timeout, refresh rate (user grants in system settings)
+    "ACCESS_NOTIFICATION_POLICY",      # Do Not Disturb (user grants in system settings)
+    "SYSTEM_ALERT_WINDOW",             # floating bubble (user grants in system settings)
+    "FOREGROUND_SERVICE",
+    "FOREGROUND_SERVICE_SPECIAL_USE",  # required for the bubble service on Android 14+
+]
+lines = ""
+for perm in PERMS:
+    if "android.permission." + perm + '"' not in t:
+        lines += '    <uses-permission android:name="android.permission.' + perm + '" />\n'
+if lines:
+    t = t.replace("<application", lines + "    <application", 1)
+if "OverlayService" not in t:
+    service = (
+        '        <service\n'
+        '            android:name="' + pkg + '.OverlayService"\n'
+        '            android:exported="false"\n'
+        '            android:foregroundServiceType="specialUse">\n'
+        '            <property\n'
+        '                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"\n'
+        '                android:value="game_overlay_bubble" />\n'
+        '        </service>\n'
+    )
+    t = t.replace("</application>", service + "    </application>", 1)
 t = t.replace('android:allowBackup="true"', 'android:allowBackup="false"')
 with open(man, "w", encoding="utf-8") as f:
     f.write(t)

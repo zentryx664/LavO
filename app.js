@@ -211,7 +211,7 @@ function normalize(r) {
 function load() { try { return normalize(JSON.parse(localStorage.getItem(KEY) || 'null')); } catch (e) { return normalize(null); } }
 let S = load();
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save: storage is full'); } };
-const ui = { q: '', cat: 'All', sort: 'name', org: false, sel: new Set(), lb: 'global', lbT: '', modCol: 'all', modTab: 'mods' };
+const ui = { q: '', cat: 'All', sort: 'name', org: false, sel: new Set(), lb: 'global', lbT: '', modCol: 'all' };
 const gameById = id => S.games.find(g => g.id === id);
 const catOpts = sel => CATS.map(c => `<option${c === sel ? ' selected' : ''}>${c}</option>`).join('');
 const fmtTime = m => { m = Math.round(m || 0); const h = Math.floor(m / 60), r = m % 60; return h ? `${h} h${r ? ' ' + r + ' min' : ''}` : `${r} min`; };
@@ -274,7 +274,7 @@ function vHome() {
   const st = [['Total Games', S.games.length], ['Tournaments', S.tournaments.length], ['Total Playtime', fmtTime(total)]];
   return `<div class="ph"><div><h1>Welcome back, ${esc(S.profile.name)}</h1><p class="mu">Pick up where you left off.</p></div></div>
 <div class="g4">${q.map(x => `<a class="card qc" href="#/${x[0]}">${ic(x[0], 22)}<h2>${x[1]}</h2><span class="mu">${x[2]}</span></a>`).join('')}</div>
-<section><h2 class="sh">Recently Played</h2><div class="rec">${rec.map((g, i) => `<button class="gt" style="--i:${i}" data-act="game" data-id="${g.id}"><span class="gi">${art(g)}</span><span class="gn">${esc(g.name)}</span></button>`).join('')}</div>${S.games.length ? '' : '<p class="mu sm" style="margin-top:14px">No installed games detected yet. Games will appear here automatically when available.</p>'}</section>
+<section><h2 class="sh">Recently Played</h2><div class="rec">${rec.map((g, i) => `<button class="gt" style="--i:${i}" data-act="game" data-id="${g.id}"><span class="gi">${art(g)}</span><span class="gn">${esc(g.name)}</span></button>`).join('')}<button class="gt" data-act="add-game"><span class="gi dash">${ic('plus', 24)}</span><span class="gn mu">Add Game</span></button></div>${S.games.length ? '' : '<p class="mu sm" style="margin-top:14px">No games yet. Add your first game, scan for installed games, or <button class="lnk" data-act="sample">load sample data</button>.</p>'}</section>
 <section><h2 class="sh">Your Stats</h2><div class="g3">${st.map(x => `<div class="card stat"><div class="mu">${x[0]}</div><div class="v">${esc(x[1])}</div></div>`).join('')}</div></section>`;
 }
 
@@ -290,7 +290,7 @@ function libList() {
 }
 function libGrid() {
   const l = libList();
-  if (!l.length) return `<p class="mu empty">${S.games.length ? 'No games match your search.' : 'No installed games detected. LavO will list supported games automatically.'}</p>`;
+  if (!l.length) return `<p class="mu empty">${S.games.length ? 'No games match your search.' : 'Your library is empty. Add a game or scan for installed games to get started.'}</p>`;
   return `<div class="grid">${l.map((g, i) => {
     const on = ui.sel.has(g.id);
     return `<button class="card gc${on ? ' on' : ''}" style="--i:${Math.min(i, 16)}" data-act="${ui.org ? 'sel' : 'game'}" data-id="${g.id}"${ui.org ? ` aria-pressed="${on}"` : ''}><span class="gi big">${art(g)}</span><span class="gn">${esc(g.name)}</span><span class="mu sm">${sub(g)}</span>${ui.org ? `<span class="ck">${on ? ic('check', 14) : ''}</span>` : ''}</button>`;
@@ -304,8 +304,9 @@ function refreshLib() { const g = $('#libGrid'); if (!g) return; g.innerHTML = l
 function vLibrary() {
   if (ui.cat !== 'All' && !S.games.some(g => g.category === ui.cat)) ui.cat = 'All';
   const cats = ['All'].concat(Array.from(new Set(S.games.map(g => g.category))).sort());
-  return `<div class="ph"><h1>Library</h1><div class="acts"><button class="btn" data-act="organize">${ui.org ? 'Done' : 'Organize'}</button></div></div>
-<div class="bar"><input class="srch" type="search" data-bind="q" placeholder="Search installed games" aria-label="Search games" value="${esc(ui.q)}"></div>
+  const p = platform();
+  return `<div class="ph"><h1>Library</h1><div class="acts"><button class="btn" data-act="organize">${ui.org ? 'Done' : 'Organize'}</button>${p === 'windows' ? `<button class="btn" data-act="scan">${ic('scan', 16)} Scan games</button>` : ''}${p === 'android' ? `<button class="btn" data-act="pick-apps">${ic('scan', 16)} From apps</button>` : ''}</div></div>
+<div class="bar"><input class="srch" type="search" data-bind="q" placeholder="Search games" aria-label="Search games" value="${esc(ui.q)}"></div>
 <div class="chips">${cats.map(c => `<button class="ch${ui.cat === c ? ' on' : ''}" data-act="cat" data-v="${esc(c)}">${esc(c)}</button>`).join('')}</div>
 <div id="orgbar">${orgbar()}</div><div id="libGrid">${libGrid()}</div>`;
 }
@@ -356,37 +357,16 @@ ${rows.length ? `<div class="card tw"><table><thead><tr><th>#</th><th>Player</th
 }
 
 const modGames = m => m.games.indexOf('*') >= 0 ? 'All games' : m.games.join(', ');
-function modCompatibility(m, g) {
-  if (g.kind === 'android') return { label: 'Unsupported on Android', detail: 'Android does not allow LavO to apply these launch mods to another app.', tone: 'warn' };
-  if (!canMod(g)) return { label: 'Unsupported platform', detail: 'This game source cannot receive LavO launch options.', tone: 'warn' };
-  if (!appliesTo(m, g)) return { label: 'Not targeted', detail: 'This mod does not list this game in its supported game names.', tone: 'muted' };
-  const engines = Array.from(m.code.matchAll(/engine\s*==\s*["']([^"']+)["']/g)).map(x => x[1].toLowerCase());
-  const unique = Array.from(new Set(engines));
-  if (unique.length && (!g.engine || g.engine === 'unknown')) return { label: 'Needs review', detail: 'The mod checks for ' + unique.join(' / ') + ' engine support, but this game engine is unknown.', tone: 'warn' };
-  if (unique.length && unique.indexOf(String(g.engine).toLowerCase()) < 0) return { label: 'Engine mismatch', detail: 'This mod contains engine-specific settings for ' + unique.join(' / ') + ', while this game is detected as ' + g.engine + '.', tone: 'warn' };
-  return { label: 'Compatible', detail: unique.length ? 'Game target and detected engine match this mod.' : 'Game target matches. No engine-specific requirement was detected.', tone: 'good' };
-}
-function vModCompatibility() {
-  if (!S.mods.length) return '<p class="mu empty">No mods are installed to check yet.</p>';
-  if (!S.games.length) return '<p class="mu empty">No installed games detected. Compatibility results will appear when LavO finds games on this device.</p>';
-  return `<div class="compat-list">${S.mods.map(m => {
-    const rows = S.games.map(g => ({ game: g, result: modCompatibility(m, g) }));
-    const supported = rows.filter(x => x.result.label === 'Compatible').length;
-    return `<section class="card compat-card"><div class="compat-head"><div><h2>${esc(m.name)}</h2><p class="mu sm">v${esc(m.version)} · ${esc(modGames(m))}</p></div><span class="pill">${supported} compatible</span></div><div class="compat-rows">${rows.map(x => `<div class="compat-row"><span class="compat-game"><span class="gi mini">${art(x.game)}</span><span>${esc(x.game.name)}<small class="mu">${esc(x.game.engine || 'Engine unknown')} · ${esc(x.game.kind)}</small></span></span><span class="compat-status ${x.result.tone}"><b>${esc(x.result.label)}</b><small>${esc(x.result.detail)}</small></span></div>`).join('')}</div></section>`;
-  }).join('')}</div>`;
-}
 function vMods() {
   if (ui.modCol !== 'all' && !S.collections.some(c => c.id === ui.modCol)) ui.modCol = 'all';
   const col = S.collections.find(c => c.id === ui.modCol);
   const list = col ? S.mods.filter(m => col.mods.indexOf(m.id) >= 0) : S.mods;
-  const tabs = `<div class="chips mod-tabs"><button class="ch${ui.modTab === 'mods' ? ' on' : ''}" data-act="mod-tab" data-v="mods">Installed mods</button><button class="ch${ui.modTab === 'compat' ? ' on' : ''}" data-act="mod-tab" data-v="compat">Compatibility</button></div>`;
-  if (ui.modTab === 'compat') return `<div class="ph"><h1>Mod Compatibility</h1></div>${tabs}<p class="mu sm">Checks each mod against detected games, platform support, game targeting and known engine requirements. Results are advisory; LavO cannot verify every mod's behavior inside a game.</p>${vModCompatibility()}`;
-  const side = `<aside class="card mod-collections"><h2>Collections</h2><button class="mod-collection${col ? '' : ' on'}" data-act="col" data-id="all">All mods <span class="cnt">${S.mods.length}</span></button>${S.collections.map(c => `<button class="mod-collection${col && col.id === c.id ? ' on' : ''}" data-act="col" data-id="${c.id}">${esc(c.name)} <span class="cnt">${c.mods.length}</span></button>`).join('')}</aside>`;
-  const head = col ? `<div class="mod-section-head"><h2>${esc(col.name)}</h2><div class="mod-collection-actions"><button class="btn" data-act="col-on">Enable all</button><button class="btn" data-act="col-manage">Manage mods</button><button class="btn" data-act="col-delete">Delete</button></div></div>` : '';
-  const table = list.length ? `<div class="mod-list">${list.map(m => `<div class="mod-row"><button class="mod-open" data-act="mod" data-id="${m.id}"><span class="mod-title">${esc(m.name)}${m.builtin ? ' <span class="pill b">Built-in</span>' : ''}</span><span class="mu sm">${esc(modGames(m))} · v${esc(m.version)}</span></button><label class="mod-switch" aria-label="Enable ${esc(m.name)}"><input type="checkbox" data-bind="modon" data-id="${m.id}"${m.enabled ? ' checked' : ''}><span></span></label></div>`).join('')}</div>` : '<p class="mu empty">No mods in this collection.</p>';
-  return `<div class="ph"><h1>Mods</h1></div>${tabs}
-<p class="mu sm" style="margin:-12px 0 0">Mods are Python files (.la) that set launch options for supported Windows games. Android does not allow changing other apps.</p>
-<div class="mods-layout">${side}<section class="card mod-content">${head}${table}</section></div>`;
+  const chips = `<div class="chips"><button class="ch${col ? '' : ' on'}" data-act="col" data-id="all">All mods · ${S.mods.length}</button>${S.collections.map(c => `<button class="ch${col && col.id === c.id ? ' on' : ''}" data-act="col" data-id="${c.id}">${esc(c.name)} · ${c.mods.length}</button>`).join('')}</div>`;
+  const head = col ? `<div class="bar"><span class="grow mu">Collection</span><button class="btn" data-act="col-on">Enable all</button><button class="btn" data-act="col-manage">Manage mods</button><button class="btn" data-act="col-delete">Delete</button></div>` : '';
+  const rows = list.length ? `<div class="mlist">${list.map((m, i) => `<div class="mrow" style="--i:${Math.min(i, 12)}"><button class="mmain" data-act="mod" data-id="${m.id}"><span class="gi sm">${esc((m.name.trim()[0] || '?').toUpperCase())}</span><span class="grow"><span class="mname">${esc(m.name)}</span><span class="mu sm mline">v${esc(m.version)} · ${esc(modGames(m))}${m.builtin ? ' · Built-in' : ''}</span></span></button><label class="sw"><input type="checkbox" data-bind="modon" data-id="${m.id}"${m.enabled ? ' checked' : ''} aria-label="Enable ${esc(m.name)}"><i></i></label></div>`).join('')}</div>` : '<p class="mu empty">No mods in this collection yet.</p>';
+  return `<div class="ph"><h1>Mods</h1></div>
+<p class="mu sm" style="margin:-12px 0 0">Mods are Python files (.la) that set launch options for your games. They run in a safe sandbox and apply to Windows games from Steam, Epic or a program path. FPS Boost is forced on for all games unless you turn that off in Settings. Android does not allow changing other apps.</p>
+${chips}${head}${rows}`;
 }
 
 function vProfile() {
@@ -405,11 +385,12 @@ function vSettings() {
 <label class="tg"><input type="checkbox" data-bind="boostall"${s.boostAll ? ' checked' : ''}><span>Force FPS Boost on all games</span></label>
 <label class="tg"><input type="checkbox" data-bind="autoscan"${s.autoscan ? ' checked' : ''}><span>Look for installed games when the app starts</span></label>
 <label>Start page<select data-bind="start">${NAV.map(x => `<option value="${x[0]}"${s.start === x[0] ? ' selected' : ''}>${x[1]}</option>`).join('')}</select></label></section>
+${p === 'android' && lavoPlugin() && lavoPlugin().permissionStatus ? '<section class="card stack" style="max-width:560px"><h2>Game boost permissions</h2><div id="perms" class="stack" style="gap:12px"></div><p class="mu sm" style="margin:0">Android asks you to switch each one on in system settings. LavO restores your original settings when you return from a game.</p></section>' : ''}
 <section class="card stack" style="max-width:560px"><h2>Safety and permissions</h2>
 <ul class="plist mu sm"><li>No storage permission is requested. Files are only read when you pick them.</li><li>${p === 'android' ? 'Android: LavO can see which apps are installed so it can find your games. It never changes them.' : 'Windows: LavO reads Steam and Epic game lists. It never changes game files.'}</li><li>Mods are Python files (.la) that run in a sandbox. They cannot import modules, open files, use the network or run programs. They can only set launch options, and every mod is checked and previewed before it is installed.</li></ul></section>
 <section class="card stack" style="max-width:560px"><h2>Data</h2><p class="mu sm" style="margin:0">Everything is stored on this device only. Playtime is estimated from the time you spend away from LavO after pressing Play.</p>
-<div class="acts"><button class="btn" data-act="export-all">Export backup</button><button class="btn" data-act="import-all">Import backup</button><button class="btn" data-act="sample">Load sample data</button><button class="btn" data-act="reset">Reset all data</button></div></section>
-<section class="card about" style="max-width:560px"><img src="logo.png" alt=""><div><h2>LavO Gaming Hub</h2><span class="mu sm">Version 1.2.0</span></div></section>`;
+<div class="acts"><button class="btn" data-act="rescan">Scan for games</button><button class="btn" data-act="export-all">Export backup</button><button class="btn" data-act="import-all">Import backup</button><button class="btn" data-act="sample">Load sample data</button><button class="btn" data-act="reset">Reset all data</button></div></section>
+<section class="card about" style="max-width:560px"><img src="logo.png" alt=""><div><h2>LavO Gaming Hub</h2><span class="mu sm">Version 1.3.0</span></div></section>`;
 }
 
 /* ---------- dialogs ---------- */
@@ -445,7 +426,7 @@ dlg.addEventListener('change', e => {
   } else if (t.dataset && t.dataset.gm) {
     const g = gameById(t.dataset.g); if (!g) return;
     g.mods = g.mods || {}; g.mods[t.dataset.gm] = t.checked; save(); gameSheet(g.id);
-  }
+  } else if (cur && cur.live && t.form) cur.live(new FormData(t.form));
 });
 dlg.addEventListener('input', e => {
   const t = e.target;
@@ -506,15 +487,10 @@ async function scanGames(silent) {
   const T = tauriCore(), P = lavoPlugin(); let items = [];
   try {
     if (T) items = await T.invoke('scan_games');
-    else if (P) { const r = await P.listApps(); items = (r.apps || []).filter(a => a.game).map(a => ({ name: a.name, source: storeName(a.store), kind: 'android', id: a.pkg, path: '', art: a.icon || '' })); }
-    else { if (!silent) toast('Installed-game detection is available in the Android and Windows apps'); return; }
-  } catch (e) { if (!silent) toast('Could not scan installed games'); return; }
+    else if (P) { const r = P.listGames ? await P.listGames() : await P.listApps(); items = (r.games || r.apps || []).filter(a => a.game).map(a => ({ name: a.name, source: storeName(a.store), kind: 'android', id: a.pkg, path: '', art: a.icon || '' })); }
+    else { if (!silent) toast('Scanning works in the Windows and Android apps'); return; }
+  } catch (e) { if (!silent) toast('Could not scan for games'); return; }
   let n = 0; (items || []).forEach(it => { if (it && it.name && it.id && addDetected(it)) n++; });
-  if (P) {
-    const installed = new Set((items || []).map(it => String(it.id)));
-    S.games = S.games.filter(g => g.kind !== 'android' || installed.has(String(g.ref)));
-    S.recent = S.recent.filter(id => S.games.some(g => g.id === id));
-  }
   save(); render();
   if (n) toast(`Found ${n} new game${n > 1 ? 's' : ''}`); else if (!silent) toast('No new games found');
 }
@@ -538,13 +514,55 @@ function gameSheet(id) {
   let block = '';
   if (canMod(g)) {
     block = mods.length ? `<div class="stack" style="gap:10px"><h2>Mods</h2>${mods.map(m => { const forced = m.id === 'fps-boost' && S.settings.boostAll; return `<label class="tg"><input type="checkbox" data-g="${g.id}" data-gm="${esc(m.id)}"${modOnFor(m, g) ? ' checked' : ''}${forced ? ' disabled' : ''}><span>${esc(m.name)} <span class="mu sm">v${esc(m.version)}${forced ? ' · forced on' : ''}</span></span></label>`; }).join('')}<p class="mu sm" style="margin:0">Launch options: <code>${esc(sp.args.join(' ') || 'none')}</code>${sp.priority ? ' · CPU priority: <code>' + esc(sp.priority) + '</code>' : ''}</p>${g.engine && g.engine !== 'unknown' ? `<p class="mu sm" style="margin:0">Detected engine: ${esc(g.engine)}</p>` : '<p class="mu sm" style="margin:0">Engine not detected, so only CPU priority is boosted.</p>'}${sp.errors.length ? `<p class="sm" style="margin:0">Mod problem: ${esc(sp.errors[0])}</p>` : ''}</div>` : '<p class="mu sm" style="margin:0">No mods apply to this game yet. Add or enable mods on the Mods page.</p>';
-  } else if (g.kind === 'android') block = '<p class="mu sm" style="margin:0">Android does not allow changing other apps, so LavO cannot boost or mod this game. It can still open it for you.</p>';
+  } else if (g.kind === 'android') block = (lavoPlugin() && lavoPlugin().getConfig) ? '<div id="aq" class="stack" style="gap:12px"><p class="mu sm" style="margin:0">Loading boost options…</p></div>' : '<p class="mu sm" style="margin:0">Android does not allow changing other apps, so LavO cannot boost or mod this game. It can still open it for you.</p>';
   else block = '<p class="mu sm" style="margin:0">Link this game to Steam, Epic or a program path (Edit) to launch it from here.</p>';
   dlgOpen(`<div class="gh"><span class="gi">${art(g)}</span><div class="grow"><h2>${esc(g.name)}</h2><span class="mu">${sub(g)}</span></div></div>${block}
 <div class="acts"><button type="button" class="btn" data-do="edit">Edit</button><button type="button" class="btn" data-do="close">Close</button><button type="button" class="btn p" data-do="play"${g.kind === 'manual' ? ' disabled' : ''}>${ic('play', 16)} Play</button></div>`, {
     edit() { gameEdit(g.id); return false; },
-    play() { playGame(g); }
+    play() { playGame(g); },
+    saveq() { saveAq(g); return false; },
+    perm(b) { askPerm(b.dataset.name); return false; }
   });
+  if (g.kind === 'android' && lavoPlugin() && lavoPlugin().getConfig) loadAq(g);
+}
+async function loadAq(g) {
+  const P = lavoPlugin(), box = $('#aq'); if (!P || !box) return;
+  try {
+    const [c, ps] = await Promise.all([P.getConfig({ pkg: g.ref }), P.permissionStatus()]);
+    const cfg = c.config, br = cfg.brightness;
+    const sw = (id, label, on) => `<label class="tg2"><span>${label}</span><span class="sw"><input type="checkbox" id="${id}"${on ? ' checked' : ''}><i></i></span></label>`;
+    const need = [];
+    if ((cfg.fpsBoost || br >= 0 || cfg.screenTimeoutMin > 0) && !ps.writeSettings) need.push(['writeSettings', 'Modify system settings']);
+    if (cfg.dnd && !ps.notificationPolicy) need.push(['notificationPolicy', 'Do Not Disturb access']);
+    if (cfg.overlay && !ps.overlay) need.push(['overlay', 'Display over other apps']);
+    box.innerHTML = `<h2>Boost options</h2>
+${sw('aq-fps', 'FPS Boost (keep the display at its highest refresh rate)', cfg.fpsBoost)}
+${sw('aq-dnd', 'Do Not Disturb while playing', cfg.dnd)}
+${sw('aq-ov', 'Floating bubble', cfg.overlay)}
+${sw('aq-brk', 'Set brightness', br >= 0)}
+<input type="range" id="aq-br" min="0" max="255" value="${br < 0 ? 128 : br}" aria-label="Brightness">
+<label>Keep screen on (minutes, 0 = unchanged)<input id="aq-to" type="number" min="0" max="30" value="${cfg.screenTimeoutMin}"></label>
+${need.length ? `<div class="stack" style="gap:8px"><p class="mu sm" style="margin:0">Needs your permission:</p>${need.map(n => `<button type="button" class="btn" data-do="perm" data-name="${n[0]}">Grant: ${n[1]}</button>`).join('')}</div>` : ''}
+<button type="button" class="btn" data-do="saveq">Save boost options</button>
+<p class="mu sm" style="margin:0">Applied when you press Play. Your original settings are restored when you return to LavO.</p>`;
+  } catch (e) { box.innerHTML = '<p class="mu sm" style="margin:0">Could not load boost options.</p>'; }
+}
+async function saveAq(g) {
+  const P = lavoPlugin(); if (!P || !$('#aq-fps')) return;
+  const cfg = { fpsBoost: $('#aq-fps').checked, dnd: $('#aq-dnd').checked, overlay: $('#aq-ov').checked, brightness: $('#aq-brk').checked ? parseInt($('#aq-br').value, 10) : -1, screenTimeoutMin: Math.max(0, Math.min(30, parseInt($('#aq-to').value, 10) || 0)) };
+  try { await P.saveConfig({ pkg: g.ref, config: cfg }); toast('Boost options saved'); loadAq(g); } catch (e) { toast('Could not save boost options'); }
+}
+function askPerm(name) {
+  const P = lavoPlugin(); if (!P || !P.requestPermission) return;
+  P.requestPermission({ name }).then(() => toast('Switch it on, then come back to LavO'), () => toast('Could not open that settings screen'));
+}
+async function refreshPerms() {
+  const P = lavoPlugin(), box = $('#perms'); if (!P || !P.permissionStatus || !box) return;
+  try {
+    const s = await P.permissionStatus();
+    const rows = [['writeSettings', 'Modify system settings', 'Brightness, screen timeout, refresh rate'], ['notificationPolicy', 'Do Not Disturb access', 'Silence notifications while playing'], ['overlay', 'Display over other apps', 'Floating bubble']];
+    box.innerHTML = rows.map(r => `<div class="prow"><div class="grow"><div>${r[1]}</div><div class="mu sm">${r[2]}</div></div>${s[r[0]] ? '<span class="pill b">Granted</span>' : `<button class="btn" data-act="perm" data-n="${r[0]}">Grant</button>`}</div>`).join('');
+  } catch (e) { box.textContent = 'Could not read permissions.'; }
 }
 let lcT;
 function showLaunch(g, msg) {
@@ -561,7 +579,13 @@ async function playGame(g) {
   if (sp.errors.length) toast('Mod problem: ' + sp.errors[0]);
   showLaunch(g, sp.n ? `Launching with ${sp.n} mod${sp.n > 1 ? 's' : ''}…` : 'Launching…');
   try {
-    if (g.kind === 'android' && P) await P.launch({ pkg: g.ref });
+    if (g.kind === 'android' && P) {
+      if (P.launchGame) {
+        const rep = await P.launchGame({ pkg: g.ref });
+        if (rep && rep.skipped && rep.skipped.length) toast(rep.skipped[0]);
+        else if (rep && rep.applied && rep.applied.length) toast(rep.applied.join(' · '));
+      } else await P.launch({ pkg: g.ref });
+    }
     else if (T && canMod(g)) {
       const dir = g.dir || (g.path ? g.path.replace(/[\\/][^\\/]*$/, '') : '');
       await T.invoke('launch_game', { req: { kind: g.kind, id: g.ref || '', path: g.path || '', dir, priority: sp.priority, args: sp.args, env: sp.env } });
@@ -673,26 +697,23 @@ function settingField(s, val) {
 function modDlg(id) {
   const m = S.mods.find(x => x.id === id); if (!m) return;
   const val = s => { const r = (m.values || {})[s.key]; return s.type === 'number' ? clampNum(s, r === undefined ? s.default : r) : s.type === 'toggle' ? (r === undefined ? s.default : !!r) : (s.options.indexOf(r) >= 0 ? r : s.default); };
-  const saveFields = f => {
-    const games = String(f.get('games') || '').split(',').map(x => x.trim()).filter(Boolean);
-    if (games.length > 20 || games.some(x => x.length > 60)) return false;
-    const vals = {};
-    m.settings.forEach(s => { const n = 's_' + s.key; vals[s.key] = s.type === 'number' ? clampNum(s, f.get(n)) : s.type === 'toggle' ? f.has(n) : (s.options.indexOf(String(f.get(n))) >= 0 ? String(f.get(n)) : s.default); });
-    m.games = games.length ? games : ['*']; m.values = vals; m.enabled = f.has('enabled'); save(); return true;
-  };
-  dlgOpen(`<div class="mod-dialog-head"><div><h2>${esc(m.name)} <span class="mu sm">v${esc(m.version)}${m.author ? ' by ' + esc(m.author) : ''}</span></h2><p class="mu sm" style="margin:4px 0 0">${esc(m.description)}</p></div><button type="button" class="ib" data-do="close" aria-label="Close">${ic('x', 20)}</button></div>
+  const toggle = (name, label, on) => `<label class="tg2"><span>${esc(label)}</span><span class="sw"><input type="checkbox" name="${name}"${on ? ' checked' : ''}><i></i></span></label>`;
+  const field = s => s.type === 'toggle' ? toggle('s_' + s.key, s.label, val(s)) : settingField(s, val(s));
+  dlgOpen(`<div class="dh"><div><h2>${esc(m.name)} <span class="mu sm">v${esc(m.version)}${m.author ? ' by ' + esc(m.author) : ''}</span></h2><p class="mu sm" style="margin:4px 0 0">${esc(m.description)}</p></div><button type="button" class="ib" data-do="close" aria-label="Close">${ic('x')}</button></div>
+${toggle('enabled', 'Enabled', m.enabled)}
 <label>Applies to (* for all games, or game names separated by commas)<input name="games" maxlength="400" value="${esc(m.games.join(', '))}"></label>
-${m.settings.length ? '<h2>Settings</h2>' + m.settings.map(s => settingField(s, val(s))).join('') : '<p class="mu sm" style="margin:0">This mod has no settings.</p>'}
-<label class="tg"><input type="checkbox" name="enabled"${m.enabled ? ' checked' : ''}><span>Enabled</span></label><p class="mu sm">Changes are saved automatically.</p><div id="err" class="err"></div>`, {
-    submit(f) { if (!saveFields(f)) return formErr('Use up to 20 game names, 60 characters each.'); render(); },
-    close() { dlg.close(); return false; }
+${m.settings.length ? '<h2>Settings</h2>' + m.settings.map(field).join('') : '<p class="mu sm" style="margin:0">This mod has no settings.</p>'}
+<div id="err" class="err"></div><p class="mu sm" style="margin:0">Changes are saved automatically.</p>`, {
+    live(f) {
+      const games = String(f.get('games') || '').split(',').map(x => x.trim()).filter(Boolean);
+      if (games.length > 20 || games.some(x => x.length > 60)) return formErr('Use up to 20 game names, 60 characters each.');
+      formErr('');
+      const vals = {};
+      m.settings.forEach(s => { const n = 's_' + s.key; vals[s.key] = s.type === 'number' ? clampNum(s, f.get(n)) : s.type === 'toggle' ? f.has(n) : (s.options.indexOf(String(f.get(n))) >= 0 ? String(f.get(n)) : s.default); });
+      m.games = games.length ? games : ['*']; m.values = vals; m.enabled = f.has('enabled'); save(); render();
+    }
   });
-  const form = $('#df');
-  const persist = () => { if (!form) return; if (!saveFields(new FormData(form))) { const e = $('#err'); if (e) e.textContent = 'Use up to 20 game names, 60 characters each.'; } else { const e = $('#err'); if (e) e.textContent = ''; } };
-  form.addEventListener('input', persist);
-  form.addEventListener('change', persist);
 }
-
 function codeDlg(m, prefill) {
   dlgOpen(`<h2>${m ? 'Edit code: ' + esc(m.name) : 'Create mod'}</h2>
 <p class="mu sm" style="margin:0">Mods are written in Python and saved as .la files. They run in a safe sandbox: no imports, files, network or system access. They can only set launch options.</p>
@@ -811,6 +832,7 @@ function render() {
   document.body.classList.toggle('compact', !!S.settings.compact);
   const V = { home: vHome, library: vLibrary, tournaments: () => r.id ? vTournament(r.id) : vTournaments(), leaderboards: vLeaders, mods: vMods, profile: vProfile, settings: vSettings };
   v.innerHTML = V[r.page]();
+  if (r.page === 'settings') refreshPerms();
   if (key !== lastKey) {
     const dir = lastKey === null || r.page === lastPage ? 'u' : (idx > lastIdx ? 'r' : 'l');
     v.className = ''; void v.offsetWidth; v.className = 'enter dir-' + dir; lastKey = key; lastIdx = idx; lastPage = r.page;
@@ -829,7 +851,10 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act, id = b.dataset.id, t = curT();
   switch (a) {
+    case 'add-game': return gameDlg();
     case 'game': return gameSheet(id);
+    case 'scan': case 'rescan': return scanGames(false);
+    case 'pick-apps': return pickApps();
     case 'sample': return sample();
     case 'organize': ui.org = !ui.org; ui.sel.clear(); return render();
     case 'sel': if (ui.sel.has(id)) ui.sel.delete(id); else ui.sel.add(id); return refreshLib();
@@ -846,8 +871,8 @@ document.addEventListener('click', e => {
     case 't-board': if (t) { ui.lb = 't'; ui.lbT = t.id; location.hash = '#/leaderboards'; } return;
     case 'lb-tab': ui.lb = b.dataset.v; return render();
     case 'lb-player': return playerDlg(b.dataset.n);
-    case 'mod-tab': ui.modTab = b.dataset.v === 'compat' ? 'compat' : 'mods'; return render();
     case 'mod': return modDlg(id);
+    case 'perm': return askPerm(b.dataset.n);
     case 'create-mod': return codeDlg(null);
     case 'import-la': return importLaDlg();
     case 'new-col': return colDlg();
@@ -864,7 +889,8 @@ document.addEventListener('click', e => {
 document.addEventListener('input', e => { if (e.target.dataset && e.target.dataset.bind === 'q') { ui.q = e.target.value; refreshLib(); } });
 document.addEventListener('change', e => {
   const t = e.target, b = t.dataset && t.dataset.bind; if (!b) return;
-  if (b === 'lbT') { ui.lbT = t.value; render(); }
+  if (b === 'sort') { ui.sort = t.value; refreshLib(); }
+  else if (b === 'lbT') { ui.lbT = t.value; render(); }
   else if (b === 'compact' || b === 'lazy' || b === 'autoscan') { S.settings[b] = t.checked; save(); render(); }
   else if (b === 'boostall') { S.settings.boostAll = t.checked; save(); render(); }
   else if (b === 'start') { S.settings.start = t.value; save(); }
@@ -881,7 +907,7 @@ document.addEventListener('submit', e => {
   }
 });
 window.addEventListener('hashchange', () => { render(); $('#view').scrollTop = 0; });
-document.addEventListener('visibilitychange', () => { if (!S.session) return; if (document.hidden) { S.session.left = true; save(); } else endSession(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && route().page === 'settings') refreshPerms(); if (!S.session) return; if (document.hidden) { S.session.left = true; save(); } else endSession(); });
 window.addEventListener('blur', () => { if (S.session && !S.session.left) { S.session.left = true; save(); } });
 window.addEventListener('focus', () => { if (S.session && S.session.left && Date.now() - S.session.t0 > 20000) endSession(); });
 
@@ -890,5 +916,6 @@ render();
 window.addEventListener('resize', moveInd);
 requestAnimationFrame(() => requestAnimationFrame(() => { $$('.ind').forEach(e => e.classList.remove('no-anim')); moveInd(); }));
 if (S.session && S.session.left) endSession();
+{ const P0 = lavoPlugin(); if (P0 && P0.addListener) P0.addListener('sessionEnded', r => { toast(r && r.restored && r.restored.length ? 'Original settings restored: ' + r.restored.join(', ') : 'Welcome back'); render(); }); }
 if (S.settings.autoscan) scanGames(true);
 })();

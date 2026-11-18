@@ -8,7 +8,7 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 
 ['www/index.html', 'www/app.js', 'www/pylite.js', 'www/styles.css', 'www/logo.png', 'app-icon.png', 'capacitor.config.json',
   'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml', 'src-tauri/src/main.rs', 'src-tauri/build.rs', 'src-tauri/capabilities/default.json',
-  'android-native/LavoPlugin.java', 'android-native/MainActivity.java', 'scripts/android-icons.py']
+  'android-native/LavoPlugin.java', 'android-native/MainActivity.java', 'android-native/GameConfigStore.java', 'android-native/SettingsApplier.java', 'android-native/OverlayService.java', 'scripts/android-icons.py']
   .forEach(f => fs.existsSync(path.join(root, f)) ? ok('found ' + f) : fail('missing ' + f));
 
 ['package.json', 'capacitor.config.json', 'src-tauri/tauri.conf.json', 'src-tauri/capabilities/default.json']

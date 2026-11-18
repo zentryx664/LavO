@@ -1,0 +1,219 @@
+name: LavO Gaming Hub
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test and web build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Assemble project
+        run: |
+          move() { if [ -f "$1" ]; then mkdir -p "$2"; mv -f "$1" "$2/$1"; echo "filed $1 into $2/"; fi; }
+          for f in index.html styles.css app.js pylite.js logo.png; do move "$f" www; done
+          for f in android-icons.py check.js build-web.js; do move "$f" scripts; done
+          for f in LavoPlugin.java MainActivity.java GameConfigStore.java SettingsApplier.java OverlayService.java; do move "$f" android-native; done
+          for f in Cargo.toml build.rs tauri.conf.json; do move "$f" src-tauri; done
+          move main.rs src-tauri/src
+          move default.json src-tauri/capabilities
+          rm -f Cargo.lock
+          missing=""
+          for f in package.json capacitor.config.json app-icon.png www/index.html www/styles.css www/app.js www/pylite.js www/logo.png scripts/android-icons.py scripts/check.js scripts/build-web.js android-native/LavoPlugin.java android-native/MainActivity.java android-native/GameConfigStore.java android-native/SettingsApplier.java android-native/OverlayService.java src-tauri/Cargo.toml src-tauri/build.rs src-tauri/tauri.conf.json src-tauri/src/main.rs src-tauri/capabilities/default.json; do
+            if [ ! -f "$f" ]; then missing="$missing $f"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing files:$missing"
+            echo "Upload the missing files to the top level of the repo, then run again."
+            echo "Files currently at the top level:"
+            ls -la
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Test
+        run: npm test
+
+      - name: Build web app
+        run: npm run build:web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LavO-Web
+          path: dist
+
+  windows:
+    name: Windows installer
+    needs: test
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Assemble project
+        run: |
+          move() { if [ -f "$1" ]; then mkdir -p "$2"; mv -f "$1" "$2/$1"; echo "filed $1 into $2/"; fi; }
+          for f in index.html styles.css app.js pylite.js logo.png; do move "$f" www; done
+          for f in android-icons.py check.js build-web.js; do move "$f" scripts; done
+          for f in LavoPlugin.java MainActivity.java GameConfigStore.java SettingsApplier.java OverlayService.java; do move "$f" android-native; done
+          for f in Cargo.toml build.rs tauri.conf.json; do move "$f" src-tauri; done
+          move main.rs src-tauri/src
+          move default.json src-tauri/capabilities
+          rm -f Cargo.lock
+          missing=""
+          for f in package.json capacitor.config.json app-icon.png www/index.html www/styles.css www/app.js www/pylite.js www/logo.png scripts/android-icons.py scripts/check.js scripts/build-web.js android-native/LavoPlugin.java android-native/MainActivity.java android-native/GameConfigStore.java android-native/SettingsApplier.java android-native/OverlayService.java src-tauri/Cargo.toml src-tauri/build.rs src-tauri/tauri.conf.json src-tauri/src/main.rs src-tauri/capabilities/default.json; do
+            if [ ! -f "$f" ]; then missing="$missing $f"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing files:$missing"
+            echo "Upload the missing files to the top level of the repo, then run again."
+            echo "Files currently at the top level:"
+            ls -la
+            exit 1
+          fi
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Generate icons from the logo
+        run: npx tauri icon app-icon.png
+
+      - name: Build Windows app
+        run: npx tauri build
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: LavO-Gaming-Hub-Windows-Installer
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Upload portable exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: LavO-Gaming-Hub-Windows-Portable
+          path: src-tauri/target/release/lavo-gaming-hub.exe
+          if-no-files-found: error
+
+  android:
+    name: Android APK
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Assemble project
+        run: |
+          move() { if [ -f "$1" ]; then mkdir -p "$2"; mv -f "$1" "$2/$1"; echo "filed $1 into $2/"; fi; }
+          for f in index.html styles.css app.js pylite.js logo.png; do move "$f" www; done
+          for f in android-icons.py check.js build-web.js; do move "$f" scripts; done
+          for f in LavoPlugin.java MainActivity.java GameConfigStore.java SettingsApplier.java OverlayService.java; do move "$f" android-native; done
+          for f in Cargo.toml build.rs tauri.conf.json; do move "$f" src-tauri; done
+          move main.rs src-tauri/src
+          move default.json src-tauri/capabilities
+          rm -f Cargo.lock
+          missing=""
+          for f in package.json capacitor.config.json app-icon.png www/index.html www/styles.css www/app.js www/pylite.js www/logo.png scripts/android-icons.py scripts/check.js scripts/build-web.js android-native/LavoPlugin.java android-native/MainActivity.java android-native/GameConfigStore.java android-native/SettingsApplier.java android-native/OverlayService.java src-tauri/Cargo.toml src-tauri/build.rs src-tauri/tauri.conf.json src-tauri/src/main.rs src-tauri/capabilities/default.json; do
+            if [ ! -f "$f" ]; then missing="$missing $f"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing files:$missing"
+            echo "Upload the missing files to the top level of the repo, then run again."
+            echo "Files currently at the top level:"
+            ls -la
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+          pip install pillow
+
+      - name: Create Android project
+        run: |
+          rm -rf android
+          npx cap add android
+          python scripts/android-icons.py
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../LavO-Gaming-Hub.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LavO-Gaming-Hub-Android
+          path: LavO-Gaming-Hub.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [windows, android]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          pattern: LavO-Gaming-Hub-*
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: LavO Gaming Hub build ${{ github.run_number }}
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: release-files/*
